@@ -74,6 +74,7 @@ impl ProxySocks5Escaper {
     ) -> Result<(LimitedStream<TcpStream>, UdpSocket), UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: &UpstreamAddr::empty(),
+            peer_health_check: None,
         };
         let mut ctl_stream = self
             .tcp_new_connection(&tcp_task_conf, egress_notes, task_notes)

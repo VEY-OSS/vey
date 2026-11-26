@@ -39,6 +39,7 @@ impl StackHttpEscaper {
 
         let task_conf = TcpConnectTaskConf {
             upstream: &peer_proxy,
+            peer_health_check: self.config.peer_health_check,
         };
         let stream = self
             .next

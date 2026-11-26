@@ -36,6 +36,7 @@ impl ProxyHttpEscaper {
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
+            peer_health_check: None,
         };
         let (peer, mut stream) = self
             .tcp_new_connection(&tcp_task_conf, egress_notes, task_notes)

@@ -74,6 +74,7 @@ impl ProxySocks5sEscaper {
     ) -> Result<(SslStream<impl AsyncRead + AsyncWrite + use<>>, UdpSocket), UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: &UpstreamAddr::empty(),
+            peer_health_check: None,
         };
         let mut ctl_stream = self
             .tls_handshake_to_remote(&tcp_task_conf, egress_notes, task_notes)

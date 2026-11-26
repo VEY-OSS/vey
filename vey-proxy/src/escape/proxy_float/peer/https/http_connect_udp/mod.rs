@@ -33,6 +33,7 @@ impl ProxyFloatHttpsPeer {
     {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
+            peer_health_check: None,
         };
         let mut stream = escaper
             .tls_handshake_with_peer(

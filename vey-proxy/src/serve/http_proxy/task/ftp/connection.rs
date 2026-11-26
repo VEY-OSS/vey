@@ -46,7 +46,10 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
         upstream: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        let task_conf = TcpConnectTaskConf { upstream };
+        let task_conf = TcpConnectTaskConf {
+            upstream,
+            peer_health_check: task_notes.peer_health_check(),
+        };
         self.connect_context
             .new_control_connection(&task_conf, task_notes, self.task_stats.clone())
             .await
@@ -59,6 +62,7 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let task_conf = TcpConnectTaskConf {
             upstream: server_addr,
+            peer_health_check: task_notes.peer_health_check(),
         };
         self.connect_context
             .new_transfer_connection(&task_conf, task_notes, self.task_stats.clone())

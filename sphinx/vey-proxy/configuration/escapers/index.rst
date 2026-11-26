@@ -246,18 +246,23 @@ peer_health_check
 
 Passive health check for this escaper's own proxy address, in the same shape
 as :ref:`site peer health check <conf_site_peer_health_check>`. ``proxy`` and
-``divert_tcp`` escapers use this key. They do not read the site or user site
-setting. ``direct_fixed`` and ``direct_float`` have no key of their own and
-use the site setting instead.
+``divert_tcp`` escapers use this key and keep the records. ``stack_http`` and
+``stack_https`` use this key and pass it to ``next``. ``direct_fixed`` and
+``direct_float`` keep those records for the proxy domain they dial.
+``proxy``, ``divert_tcp``, ``stack_http``, and ``stack_https`` do not read the
+site or user site setting. ``direct_fixed`` and ``direct_float`` have no key of
+their own. A dial to the request target uses the site setting.
 
-The check applies to TCP connects that resolve this escaper's proxy domain.
+The check applies to TCP connects that resolve this proxy domain.
 Literal IP addresses are not recorded. Only a connection timeout, refusal,
 reset, or host unreachable is recorded. Local errors, such as running out of
 ports, are not. Unavailable addresses are tried last.
 ``proxy`` escapers with a sticky resolve key drop them unless every candidate
-has failed. ``divert_tcp`` has no sticky selection. Records stay
-on this escaper. Reloading keeps them when the bind addresses stay the same,
-and drops them when the bind changes.
+has failed. ``divert_tcp`` has no sticky selection. ``proxy`` and
+``divert_tcp`` keep the records. Reloading keeps them when the bind addresses
+stay the same, and drops them when the bind changes. Records for
+``stack_http`` and ``stack_https`` stay on the ``direct`` escaper that opens
+the socket and follow that escaper's reload rules.
 
 **default**: not set
 

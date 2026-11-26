@@ -165,6 +165,7 @@ impl TProxyStreamTask {
 
         let task_conf = TcpConnectTaskConf {
             upstream: &self.upstream,
+            peer_health_check: self.task_notes.peer_health_check(),
         };
         let (ups_r, ups_w) = self
             .ctx

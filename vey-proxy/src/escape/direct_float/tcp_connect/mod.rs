@@ -194,8 +194,8 @@ impl DirectFloatEscaper {
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let max_tries_each_family = config.connect.max_tries();
         let port = task_conf.upstream.port();
-        let peer_health = task_notes
-            .peer_health_check()
+        let peer_health = task_conf
+            .peer_health_check
             .map(|check| self.peer_health_table.scope(resolver_job.domain(), check));
         let defer_peer = |ip: &IpAddr| {
             peer_health

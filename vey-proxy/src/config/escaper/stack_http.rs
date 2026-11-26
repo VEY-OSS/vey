@@ -23,7 +23,10 @@ use vey_types::net::{
 };
 use vey_yaml::YamlDocPosition;
 
-use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
+use super::{
+    AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig,
+    PeerHealthCheckConfig,
+};
 
 const ESCAPER_CONFIG_TYPE: &str = "StackHttp";
 
@@ -52,6 +55,7 @@ pub(crate) struct StackHttpEscaperConfig {
     pub(crate) pass_proxy_userid: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) peer_negotiation_timeout: Duration,
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -74,6 +78,7 @@ impl StackHttpEscaperConfig {
             pass_proxy_userid: false,
             use_proxy_protocol: None,
             peer_negotiation_timeout: Duration::from_secs(10),
+            peer_health_check: None,
             extra_metrics_tags: None,
         }
     }
@@ -180,6 +185,12 @@ impl StackHttpEscaperConfig {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
+            "peer_health_check" => {
+                self.peer_health_check = Some(PeerHealthCheckConfig::parse(v).context(format!(
+                    "invalid peer health check config value for key {k}"
+                ))?);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
@@ -259,7 +270,7 @@ mod tests {
     use vey_types::net::ProxyProtocolVersion;
     use vey_yaml::yaml_doc;
 
-    use super::StackHttpEscaperConfig;
+    use super::*;
     use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
     use crate::config::escaper::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
@@ -307,6 +318,7 @@ mod tests {
         assert!(config.use_proxy_protocol.is_none());
         assert_eq!(config.http_connect_rsp_hdr_max_size, 4096);
         assert_eq!(config.peer_negotiation_timeout, Duration::from_secs(10));
+        assert!(config.peer_health_check.is_none());
         assert!(!config.http_forward_capability.forward_https());
     }
 
@@ -338,6 +350,9 @@ mod tests {
             http_connect_rsp_header_max_size: 8192
             use_proxy_protocol: 2
             peer_negotiation_timeout: 3s
+            peer_health_check:
+              max_fails: 2
+              fail_timeout: 5s
             "#,
         );
         assert_eq!(config.shared_logger(), Some("escape"));
@@ -369,6 +384,13 @@ mod tests {
         assert_eq!(config.http_connect_rsp_hdr_max_size, 8192);
         assert_eq!(config.use_proxy_protocol, Some(ProxyProtocolVersion::V2));
         assert_eq!(config.peer_negotiation_timeout, Duration::from_secs(3));
+        assert_eq!(
+            config.peer_health_check,
+            Some(PeerHealthCheckConfig {
+                max_fails: 2,
+                fail_timeout: Duration::from_secs(5),
+            })
+        );
 
         let via_speed_limit = parse_ok(
             r#"

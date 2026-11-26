@@ -203,6 +203,7 @@ impl TlsRelayTask {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
                     upstream: &self.upstream,
+                    peer_health_check: self.task_notes.peer_health_check(),
                 },
                 tls_config: tls_client_config,
                 tls_name: self.host.site().tls_name_or(&self.req_host),
@@ -221,6 +222,7 @@ impl TlsRelayTask {
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
+                peer_health_check: self.task_notes.peer_health_check(),
             };
             self.ctx
                 .escaper

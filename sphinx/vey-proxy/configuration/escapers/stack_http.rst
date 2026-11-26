@@ -29,6 +29,7 @@ The following common keys are supported:
 * :ref:`tcp_sock_speed_limit <conf_escaper_common_tcp_sock_speed_limit>`
 * :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`
 * :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`
+* :ref:`peer_health_check <conf_escaper_common_peer_health_check>`
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
 
 next

@@ -31,6 +31,7 @@ impl ProxyHttpsEscaper {
     {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
+            peer_health_check: None,
         };
         let (peer, mut stream) = self
             .tls_handshake_to_remote(&tcp_task_conf, egress_notes, task_notes)

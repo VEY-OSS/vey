@@ -399,6 +399,7 @@ impl HttpGuardWebsocketTask {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
                     upstream: &self.upstream,
+                    peer_health_check: self.task_notes.peer_health_check(),
                 },
                 tls_config: tls_client,
                 tls_name: match req.host.as_ref() {
@@ -420,6 +421,7 @@ impl HttpGuardWebsocketTask {
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
+                peer_health_check: self.task_notes.peer_health_check(),
             };
             self.ctx
                 .escaper

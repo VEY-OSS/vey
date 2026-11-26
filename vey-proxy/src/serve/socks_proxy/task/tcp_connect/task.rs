@@ -267,6 +267,7 @@ impl SocksProxyTcpConnectTask {
 
         let task_conf = TcpConnectTaskConf {
             upstream: &self.upstream,
+            peer_health_check: self.task_notes.peer_health_check(),
         };
         match self
             .ctx

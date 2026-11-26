@@ -79,6 +79,7 @@ impl ProxyFloatSocks5Peer {
     ) -> Result<(LimitedStream<TcpStream>, UdpSocket), UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: &UpstreamAddr::empty(),
+            peer_health_check: None,
         };
         let mut ctl_stream = escaper
             .tcp_new_connection(self, &tcp_task_conf, egress_notes, task_notes)

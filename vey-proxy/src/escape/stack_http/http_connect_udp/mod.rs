@@ -37,6 +37,7 @@ impl StackHttpEscaper {
     > {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
+            peer_health_check: None,
         };
         let (peer, ups_r, mut ups_w) = self
             .tcp_new_connection(&tcp_task_conf, egress_notes, task_notes)

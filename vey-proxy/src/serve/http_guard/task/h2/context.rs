@@ -428,7 +428,10 @@ impl H2TaskContext {
             .await;
         let connected = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf { upstream },
+                tcp: TcpConnectTaskConf {
+                    upstream,
+                    peer_health_check: task_notes.peer_health_check(),
+                },
                 tls_config: tls_client,
                 tls_name: site.tls_name_or(req_host),
                 alpn_protocols: None,
@@ -437,7 +440,10 @@ impl H2TaskContext {
                 .new_prepared_https_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
                 .await
         } else {
-            let task_conf = TcpConnectTaskConf { upstream };
+            let task_conf = TcpConnectTaskConf {
+                upstream,
+                peer_health_check: task_notes.peer_health_check(),
+            };
             fwd_ctx
                 .new_prepared_http_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
                 .await
@@ -471,7 +477,10 @@ impl H2TaskContext {
                 let mut egress_notes = EgressNotes::default();
                 let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
                 let task_conf = TlsConnectTaskConf {
-                    tcp: TcpConnectTaskConf { upstream },
+                    tcp: TcpConnectTaskConf {
+                        upstream,
+                        peer_health_check: task_notes.peer_health_check(),
+                    },
                     tls_config,
                     tls_name: site.tls_name_or(req_host),
                     alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
@@ -528,7 +537,10 @@ impl H2TaskContext {
 
         let connected = if let Some(tls_config) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf { upstream },
+                tcp: TcpConnectTaskConf {
+                    upstream,
+                    peer_health_check: task_notes.peer_health_check(),
+                },
                 tls_config,
                 tls_name: site.tls_name_or(req_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2),
@@ -543,7 +555,10 @@ impl H2TaskContext {
                 )
                 .await
         } else {
-            let task_conf = TcpConnectTaskConf { upstream };
+            let task_conf = TcpConnectTaskConf {
+                upstream,
+                peer_health_check: task_notes.peer_health_check(),
+            };
             self.escaper
                 .tcp_setup_connection(
                     &task_conf,

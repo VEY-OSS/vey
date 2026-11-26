@@ -638,6 +638,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
                     upstream: &self.upstream,
+                    peer_health_check: self.task_notes.peer_health_check(),
                 },
                 tls_config: tls_client,
                 tls_name: match self.req.host.as_ref() {
@@ -657,6 +658,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
+                peer_health_check: self.task_notes.peer_health_check(),
             };
             fwd_ctx
                 .new_prepared_http_connection(

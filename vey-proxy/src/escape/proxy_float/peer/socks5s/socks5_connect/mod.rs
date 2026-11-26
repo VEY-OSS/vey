@@ -81,6 +81,7 @@ impl ProxyFloatSocks5sPeer {
     ) -> Result<(SslStream<impl AsyncRead + AsyncWrite + use<>>, UdpSocket), UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: &UpstreamAddr::empty(),
+            peer_health_check: None,
         };
         let mut ctl_stream = escaper
             .tls_handshake_with_peer(

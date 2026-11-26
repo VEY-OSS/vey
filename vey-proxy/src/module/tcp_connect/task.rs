@@ -11,9 +11,12 @@ use openssl::ssl::Ssl;
 use vey_types::net::{AlpnProtocol, Host, OpensslClientConfig, UpstreamAddr};
 
 use super::TcpConnectError;
+use crate::config::escaper::PeerHealthCheckConfig;
 
 pub(crate) struct TcpConnectTaskConf<'a> {
     pub(crate) upstream: &'a UpstreamAddr,
+    /// Set by the escaper that chose this address. `None` leaves the dial unchecked.
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
 }
 
 pub(crate) struct TlsConnectTaskConf<'a> {

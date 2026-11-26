@@ -33,6 +33,7 @@ impl ProxyFloatHttpPeer {
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
+            peer_health_check: None,
         };
         let mut stream = escaper
             .tcp_new_connection(self, &tcp_task_conf, egress_notes, task_notes)
