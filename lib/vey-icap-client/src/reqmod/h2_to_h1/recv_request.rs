@@ -3,12 +3,16 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::future::Future;
+
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
-use vey_h2::{H2PreviewData, H2StreamToChunkedTransfer};
+use vey_h2::{
+    H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, H2StreamToRawTransfer,
+};
 use vey_http::server::HttpAdaptedRequest;
-use vey_http::{HttpBodyDecodeReader, HttpBodyReader};
+use vey_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
 use vey_io_ext::{IdleCheck, StreamCopy, StreamCopyError};
 
 use super::{
@@ -99,24 +103,49 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         state.mark_ups_send_header();
 
         let preview_size = preview_data.preview_size() as u64;
-        preview_data
-            .write_as_chunk(ups_writer)
-            .await
-            .map_err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
-
-        let mut body_transfer = if let Some(left) = preview_data.take_left() {
-            H2StreamToChunkedTransfer::with_chunk(
-                clt_body,
-                ups_writer,
-                self.copy_config.yield_size(),
-                left,
-            )
+        let yield_size = self.copy_config.yield_size();
+        if matches!(
+            http_request.body_type(),
+            Some(HttpBodyType::ContentLength(_))
+        ) {
+            preview_data
+                .write_raw(ups_writer)
+                .await
+                .map_err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
+            let mut body_transfer = if let Some(left) = preview_data.take_left() {
+                H2StreamToRawTransfer::with_prefix(clt_body, ups_writer, yield_size, left)
+            } else {
+                H2StreamToRawTransfer::new(clt_body, ups_writer, yield_size)
+            };
+            body_transfer.add_copied(preview_size);
+            Self::drive_original_body(&self.idle_checker, state, body_transfer).await
         } else {
-            H2StreamToChunkedTransfer::new(clt_body, ups_writer, self.copy_config.yield_size())
-        };
-        body_transfer.add_copied(preview_size);
+            preview_data
+                .write_as_chunk(ups_writer)
+                .await
+                .map_err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
+            let mut body_transfer = if let Some(left) = preview_data.take_left() {
+                H2StreamToChunkedTransfer::with_chunk(clt_body, ups_writer, yield_size, left)
+            } else {
+                H2StreamToChunkedTransfer::new(clt_body, ups_writer, yield_size)
+            };
+            body_transfer.add_copied(preview_size);
+            Self::drive_original_body(&self.idle_checker, state, body_transfer).await
+        }
+    }
 
-        let mut idle_interval = self.idle_checker.interval_timer();
+    async fn drive_original_body<H, T>(
+        idle_checker: &I,
+        state: &mut ReqmodAdaptationRunState,
+        mut body_transfer: T,
+    ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
+    where
+        H: HttpRequestForAdaptation,
+        T: Future<Output = Result<u64, H2StreamToChunkedTransferError>>
+            + OriginalBodyProgress
+            + Unpin,
+    {
+        let mut idle_interval = idle_checker.interval_timer();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -140,7 +169,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                 n = idle_interval.tick() => {
                     if body_transfer.is_idle() {
                         idle_count += n;
-                        if self.idle_checker.check_quit(idle_count) {
+                        if idle_checker.check_quit(idle_count) {
                             state.clt_req_body_size = Some(body_transfer.received_size());
                             state.ups_req_body_size = Some(body_transfer.copied_size());
                             return if body_transfer.no_cached_data() {
@@ -153,7 +182,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                         idle_count = 0;
                         body_transfer.reset_active();
                     }
-                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                    if let Some(reason) = idle_checker.check_force_quit() {
                         state.clt_req_body_size = Some(body_transfer.received_size());
                         state.ups_req_body_size = Some(body_transfer.copied_size());
                         return Err(H2ToH1ReqmodAdaptationError::IdleForceQuit(reason));
@@ -336,5 +365,49 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                 }
             }
         }
+    }
+}
+
+trait OriginalBodyProgress {
+    fn received_size(&self) -> u64;
+    fn copied_size(&self) -> u64;
+    fn is_idle(&self) -> bool;
+    fn reset_active(&mut self);
+    fn no_cached_data(&self) -> bool;
+}
+
+impl<W> OriginalBodyProgress for H2StreamToChunkedTransfer<'_, W> {
+    fn received_size(&self) -> u64 {
+        H2StreamToChunkedTransfer::received_size(self)
+    }
+    fn copied_size(&self) -> u64 {
+        H2StreamToChunkedTransfer::copied_size(self)
+    }
+    fn is_idle(&self) -> bool {
+        H2StreamToChunkedTransfer::is_idle(self)
+    }
+    fn reset_active(&mut self) {
+        H2StreamToChunkedTransfer::reset_active(self);
+    }
+    fn no_cached_data(&self) -> bool {
+        H2StreamToChunkedTransfer::no_cached_data(self)
+    }
+}
+
+impl<W> OriginalBodyProgress for H2StreamToRawTransfer<'_, W> {
+    fn received_size(&self) -> u64 {
+        H2StreamToRawTransfer::received_size(self)
+    }
+    fn copied_size(&self) -> u64 {
+        H2StreamToRawTransfer::copied_size(self)
+    }
+    fn is_idle(&self) -> bool {
+        H2StreamToRawTransfer::is_idle(self)
+    }
+    fn reset_active(&mut self) {
+        H2StreamToRawTransfer::reset_active(self);
+    }
+    fn no_cached_data(&self) -> bool {
+        H2StreamToRawTransfer::no_cached_data(self)
     }
 }

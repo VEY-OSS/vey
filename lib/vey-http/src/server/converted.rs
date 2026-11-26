@@ -17,9 +17,11 @@ use crate::HttpBodyType;
 /// HTTP/2 or HTTP/3 request converted to an HTTP/1.1 hop for origin / ICAP.
 ///
 /// Header names stay lowercase. Hop-by-hop headers that HTTP/2 and HTTP/3
-/// do not send (`connection`, and `transfer-encoding` when there is a body)
-/// are synthesized on serialize. A body is always announced as chunked so
-/// trailers can be forwarded.
+/// do not send (`connection`, and `transfer-encoding` when the body is
+/// chunked) are synthesized on serialize. A body whose length is unknown is
+/// announced as chunked. A `content-length` is kept, and chunked encoding is
+/// used instead only when the request also carries a `trailer` header, so
+/// those trailer fields can be forwarded.
 pub struct HttpConvertedRequest {
     pub version: Version,
     pub method: Method,
@@ -27,6 +29,8 @@ pub struct HttpConvertedRequest {
     pub end_to_end_headers: HeaderMap,
     pub host: UpstreamAddr,
     chunked: bool,
+    /// Set when the body is framed by `content-length` rather than chunked.
+    content_length: Option<u64>,
     trailers: bool,
     expect_100_continue: bool,
 }
@@ -37,7 +41,10 @@ impl HttpConvertedRequest {
     /// Pseudo-headers are already in `method` / `uri`. Header names stay
     /// lowercase. `Host` is taken from the header or URI `:authority`. H2/H3
     /// `te` is kept (typically `trailers`) and listed on `connection`.
-    /// `content-length` is dropped.
+    /// `content-length` is kept unless the request has a body and a `trailer`
+    /// header, in which case the body is sent as chunked so the trailers can
+    /// be forwarded. `te: trailers` only means the client accepts response
+    /// trailers and does not by itself drop `content-length`.
     pub fn from_request<T>(
         req: &Request<T>,
         has_body: bool,
@@ -45,18 +52,38 @@ impl HttpConvertedRequest {
         let mut headers = HeaderMap::new();
         let mut host = None;
         let mut trailers = false;
+        let mut has_trailer_header = false;
+        let mut content_length = None;
         let mut expect_100_continue = false;
 
         for (name, value) in req.headers() {
             match name.as_str() {
                 "connection" | "keep-alive" | "proxy-connection" | "transfer-encoding"
-                | "upgrade" | "http2-settings" | "content-length" => continue,
+                | "upgrade" | "http2-settings" => continue,
+                "content-length" => {
+                    let text = value
+                        .to_str()
+                        .map_err(|_| HttpRequestParseError::InvalidContentLength)?;
+                    let parsed = u64::from_str(text)
+                        .map_err(|_| HttpRequestParseError::InvalidContentLength)?;
+                    if let Some(existing) = content_length {
+                        if existing != parsed {
+                            return Err(HttpRequestParseError::InvalidContentLength);
+                        }
+                    } else {
+                        content_length = Some(parsed);
+                    }
+                    continue;
+                }
                 "te" => {
                     let mut te = AcceptTransferEncodingValue::default();
                     te.parse(value.as_bytes())
                         .map_err(HttpRequestParseError::InvalidAcceptTransferEncoding)?;
                     trailers = te.trailers();
                     continue;
+                }
+                "trailer" => {
+                    has_trailer_header = true;
                 }
                 "host" => {
                     if host.is_some() {
@@ -95,13 +122,24 @@ impl HttpConvertedRequest {
             return Err(HttpRequestParseError::MissedHost);
         };
 
+        // Chunked is required when the length is unknown, and when a known
+        // length still has to carry trailer fields. Otherwise keep Content-Length.
+        let chunked = has_body && (content_length.is_none() || has_trailer_header);
+        let content_length = if chunked { None } else { content_length };
+        if let Some(len) = content_length {
+            let value = HeaderValue::from_str(&len.to_string())
+                .map_err(|_| HttpRequestParseError::InvalidContentLength)?;
+            headers.insert(header::CONTENT_LENGTH, value);
+        }
+
         Ok(HttpConvertedRequest {
             version: Version::HTTP_11,
             method: req.method().clone(),
             uri: req.uri().clone(),
             end_to_end_headers: headers,
             host,
-            chunked: has_body,
+            chunked,
+            content_length: if has_body { content_length } else { None },
             trailers,
             expect_100_continue,
         })
@@ -116,6 +154,11 @@ impl HttpConvertedRequest {
             end_to_end_headers: HeaderMap::from(adapted.headers),
             host: self.host.clone(),
             chunked,
+            content_length: if chunked {
+                None
+            } else {
+                adapted.content_length
+            },
             trailers: self.trailers,
             expect_100_continue: self.expect_100_continue,
         }
@@ -129,6 +172,7 @@ impl HttpConvertedRequest {
             end_to_end_headers: HeaderMap::from(adapted.headers),
             host: self.host.clone(),
             chunked: false,
+            content_length: None,
             trailers: false,
             expect_100_continue: self.expect_100_continue,
         }
@@ -147,7 +191,11 @@ impl HttpConvertedRequest {
     /// The body presence is decided by the HTTP/2 or HTTP/3 stream,
     /// so session based auth does not suppress it as in HTTP/1.
     pub fn body_type(&self) -> Option<HttpBodyType> {
-        self.chunked.then_some(HttpBodyType::Chunked)
+        if self.chunked {
+            Some(HttpBodyType::Chunked)
+        } else {
+            self.content_length.map(HttpBodyType::ContentLength)
+        }
     }
 
     pub fn serialize_for_origin(&self) -> Vec<u8> {
@@ -228,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn from_request_with_body_is_chunked_and_drops_content_length() {
+    fn from_request_with_content_length_keeps_it_and_is_not_chunked() {
         let req = Request::builder()
             .method("POST")
             .uri("https://example.com/upload")
@@ -238,13 +286,81 @@ mod tests {
             .body(())
             .unwrap();
         let converted = HttpConvertedRequest::from_request(&req, true).unwrap();
+        assert_eq!(converted.body_type(), Some(HttpBodyType::ContentLength(6)));
+
+        let origin = String::from_utf8(converted.serialize_for_origin()).unwrap();
+        assert!(origin.contains("content-length: 6\r\n"));
+        assert!(origin.contains("connection: keep-alive\r\n"));
+        assert!(!origin.contains("transfer-encoding"));
+        assert!(origin.contains("content-type: text/plain\r\n"));
+
+        let adapter = String::from_utf8(converted.serialize_for_adapter()).unwrap();
+        assert!(adapter.contains("content-length: 6\r\n"));
+        assert!(!adapter.contains("transfer-encoding"));
+    }
+
+    #[test]
+    fn from_request_content_length_with_trailer_header_is_chunked() {
+        let req = Request::builder()
+            .method("POST")
+            .uri("https://example.com/upload")
+            .version(Version::HTTP_2)
+            .header("content-length", "6")
+            .header("trailer", "checksum")
+            .body(())
+            .unwrap();
+        let converted = HttpConvertedRequest::from_request(&req, true).unwrap();
         assert_eq!(converted.body_type(), Some(HttpBodyType::Chunked));
 
         let origin = String::from_utf8(converted.serialize_for_origin()).unwrap();
         assert!(origin.contains("transfer-encoding: chunked\r\n"));
-        assert!(origin.contains("connection: keep-alive\r\n"));
+        assert!(origin.contains("trailer: checksum\r\n"));
         assert!(!origin.contains("content-length"));
-        assert!(origin.contains("content-type: text/plain\r\n"));
+    }
+
+    #[test]
+    fn from_request_content_length_with_te_trailers_is_not_chunked() {
+        let req = Request::builder()
+            .method("POST")
+            .uri("https://example.com/upload")
+            .version(Version::HTTP_2)
+            .header("content-length", "6")
+            .header("te", "trailers")
+            .body(())
+            .unwrap();
+        let converted = HttpConvertedRequest::from_request(&req, true).unwrap();
+        assert_eq!(converted.body_type(), Some(HttpBodyType::ContentLength(6)));
+
+        let origin = String::from_utf8(converted.serialize_for_origin()).unwrap();
+        assert!(origin.contains("content-length: 6\r\n"));
+        assert!(origin.contains("te: trailers\r\n"));
+        assert!(!origin.contains("transfer-encoding"));
+    }
+
+    #[test]
+    fn from_request_rejects_invalid_or_mismatched_content_length() {
+        let req = Request::builder()
+            .method("POST")
+            .uri("https://example.com/upload")
+            .header("content-length", "nope")
+            .body(())
+            .unwrap();
+        assert!(matches!(
+            HttpConvertedRequest::from_request(&req, true),
+            Err(HttpRequestParseError::InvalidContentLength)
+        ));
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("https://example.com/upload")
+            .header("content-length", "1")
+            .header("content-length", "2")
+            .body(())
+            .unwrap();
+        assert!(matches!(
+            HttpConvertedRequest::from_request(&req, true),
+            Err(HttpRequestParseError::InvalidContentLength)
+        ));
     }
 
     #[test]

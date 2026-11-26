@@ -3,6 +3,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::future::Future;
+
 use anyhow::anyhow;
 use bytes::Bytes;
 use futures_util::FutureExt;
@@ -11,7 +13,10 @@ use h2::{RecvStream, SendStream};
 use http::{HeaderMap, Response};
 use tokio::io::AsyncWriteExt;
 
-use vey_h2::{H2BodyEncodeTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer};
+use vey_h2::{
+    H2BodyEncodeTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer,
+    H2StreamToChunkedTransferError, H2StreamToRawTransfer,
+};
 use vey_http::client::HttpForwardRemoteResponse;
 use vey_http::server::HttpConvertedRequest;
 use vey_http::{HttpBodyDecodeReader, HttpBodyType};
@@ -316,9 +321,8 @@ impl H2ForwardTask {
         clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> ServerTaskResult<bool> {
-        let mut rsp_header = None;
         self.http_notes.retry_new_connection = true;
-        let (clt_read_finished, ups_write_finished) = {
+        let (clt_read_finished, ups_write_finished, rsp_header) = {
             let ups_w = &mut origin.connection.0;
             let ups_r = &mut origin.connection.1;
             let mut ups_w_adaptation =
@@ -335,91 +339,18 @@ impl H2ForwardTask {
                     .await
                     .map_err(ServerTaskError::UpstreamWriteFailed)?;
                 self.http_notes.mark_req_no_body();
-                (true, true)
+                (true, true, None)
             } else {
                 self.http_notes.retry_new_connection = false;
-                let mut body_transfer = H2StreamToChunkedTransfer::new(
-                    clt_body,
-                    ups_w,
-                    self.ctx.server_config.tcp_copy.yield_size(),
-                );
-                let mut idle_interval = self.ctx.idle_wheel.register();
-                let mut idle_count = 0;
-                macro_rules! record_req_body {
-                    () => {
-                        self.http_notes.clt_req_body_size = Some(body_transfer.received_size());
-                        self.http_notes.ups_req_body_size = Some(body_transfer.copied_size());
-                    };
-                }
-                loop {
-                    tokio::select! {
-                        biased;
-                        r = ups_r.fill_wait_data() => {
-                            match r {
-                                Ok(true) => {
-                                    let hdr = self.recv_h1_response_header_in_time(ups_r).await?;
-                                    if let Some(final_hdr) =
-                                        self.check_out_h1_informational(hdr, clt_send_rsp)?
-                                    {
-                                        record_req_body!();
-                                        rsp_header = Some(final_hdr);
-                                        break (body_transfer.recv_finished(), body_transfer.finished());
-                                    }
-                                }
-                                Ok(false) => {
-                                    if body_transfer.received_size() == 0 {
-                                        self.http_notes.retry_new_connection = true;
-                                    }
-                                    record_req_body!();
-                                    return Err(ServerTaskError::ClosedByUpstream);
-                                }
-                                Err(e) => {
-                                    if body_transfer.received_size() == 0 {
-                                        self.http_notes.retry_new_connection = true;
-                                    }
-                                    record_req_body!();
-                                    return Err(ServerTaskError::UpstreamReadFailed(e));
-                                }
-                            }
-                        }
-                        r = &mut body_transfer => {
-                            match r {
-                                Ok(n) => {
-                                    self.http_notes.mark_req_send_all();
-                                    self.http_notes.clt_req_body_size = Some(n);
-                                    self.http_notes.ups_req_body_size = Some(n);
-                                    break (true, true);
-                                }
-                                Err(e) => {
-                                    record_req_body!();
-                                    return Err(ServerTaskError::request_h2_to_chunked_error(e));
-                                }
-                            }
-                        }
-                        n = idle_interval.tick() => {
-                            if body_transfer.is_idle() {
-                                idle_count += n;
-                                if idle_count
-                                    > self.task_notes.task_max_idle_count(
-                                        self.ctx.server_config.task_idle_max_count,
-                                    )
-                                {
-                                    record_req_body!();
-                                    return Err(ServerTaskError::Idle(
-                                        idle_interval.period(),
-                                        idle_count,
-                                    ));
-                                }
-                            } else {
-                                idle_count = 0;
-                                body_transfer.reset_active();
-                            }
-                            if self.ctx.server_quit_policy.force_quit() {
-                                record_req_body!();
-                                return Err(ServerTaskError::CanceledAsServerQuit);
-                            }
-                        }
-                    }
+                let yield_size = self.ctx.server_config.tcp_copy.yield_size();
+                if matches!(converted.body_type(), Some(HttpBodyType::ContentLength(_))) {
+                    let body_transfer = H2StreamToRawTransfer::new(clt_body, ups_w, yield_size);
+                    self.relay_h2_request_body(ups_r, clt_send_rsp, body_transfer)
+                        .await?
+                } else {
+                    let body_transfer = H2StreamToChunkedTransfer::new(clt_body, ups_w, yield_size);
+                    self.relay_h2_request_body(ups_r, clt_send_rsp, body_transfer)
+                        .await?
                 }
             }
         };
@@ -490,6 +421,94 @@ impl H2ForwardTask {
         self.http_notes.mark_rsp_recv_hdr();
         self.http_notes.origin_status = rsp.code;
         Ok(rsp)
+    }
+
+    async fn relay_h2_request_body<T>(
+        &mut self,
+        ups_r: &mut BoxHttpForwardReader,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        mut body_transfer: T,
+    ) -> ServerTaskResult<(bool, bool, Option<HttpForwardRemoteResponse>)>
+    where
+        T: Future<Output = Result<u64, H2StreamToChunkedTransferError>> + H2ReqBodyProgress + Unpin,
+    {
+        let mut rsp_header = None;
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut idle_count = 0;
+        macro_rules! record_req_body {
+            () => {
+                self.http_notes.clt_req_body_size = Some(body_transfer.received_size());
+                self.http_notes.ups_req_body_size = Some(body_transfer.copied_size());
+            };
+        }
+        let finished = loop {
+            tokio::select! {
+                biased;
+                r = ups_r.fill_wait_data() => {
+                    match r {
+                        Ok(true) => {
+                            let hdr = self.recv_h1_response_header_in_time(ups_r).await?;
+                            if let Some(final_hdr) =
+                                self.check_out_h1_informational(hdr, clt_send_rsp)?
+                            {
+                                record_req_body!();
+                                rsp_header = Some(final_hdr);
+                                break (body_transfer.recv_finished(), body_transfer.finished());
+                            }
+                        }
+                        Ok(false) => {
+                            if body_transfer.received_size() == 0 {
+                                self.http_notes.retry_new_connection = true;
+                            }
+                            record_req_body!();
+                            return Err(ServerTaskError::ClosedByUpstream);
+                        }
+                        Err(e) => {
+                            if body_transfer.received_size() == 0 {
+                                self.http_notes.retry_new_connection = true;
+                            }
+                            record_req_body!();
+                            return Err(ServerTaskError::UpstreamReadFailed(e));
+                        }
+                    }
+                }
+                r = &mut body_transfer => {
+                    match r {
+                        Ok(n) => {
+                            self.http_notes.mark_req_send_all();
+                            self.http_notes.clt_req_body_size = Some(n);
+                            self.http_notes.ups_req_body_size = Some(n);
+                            break (true, true);
+                        }
+                        Err(e) => {
+                            record_req_body!();
+                            return Err(ServerTaskError::request_h2_to_chunked_error(e));
+                        }
+                    }
+                }
+                n = idle_interval.tick() => {
+                    if body_transfer.is_idle() {
+                        idle_count += n;
+                        if idle_count
+                            > self.task_notes.task_max_idle_count(
+                                self.ctx.server_config.task_idle_max_count,
+                            )
+                        {
+                            record_req_body!();
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+                        body_transfer.reset_active();
+                    }
+                    if self.ctx.server_quit_policy.force_quit() {
+                        record_req_body!();
+                        return Err(ServerTaskError::CanceledAsServerQuit);
+                    }
+                }
+            }
+        };
+        Ok((finished.0, finished.1, rsp_header))
     }
 
     /// For headers that start arriving while the request body is still being
@@ -847,5 +866,56 @@ impl H2ForwardTask {
             origin.reuse_notes,
             origin.egress_notes,
         );
+    }
+}
+
+trait H2ReqBodyProgress {
+    fn received_size(&self) -> u64;
+    fn copied_size(&self) -> u64;
+    fn recv_finished(&self) -> bool;
+    fn finished(&self) -> bool;
+    fn is_idle(&self) -> bool;
+    fn reset_active(&mut self);
+}
+
+impl<W> H2ReqBodyProgress for H2StreamToChunkedTransfer<'_, W> {
+    fn received_size(&self) -> u64 {
+        H2StreamToChunkedTransfer::received_size(self)
+    }
+    fn copied_size(&self) -> u64 {
+        H2StreamToChunkedTransfer::copied_size(self)
+    }
+    fn recv_finished(&self) -> bool {
+        H2StreamToChunkedTransfer::recv_finished(self)
+    }
+    fn finished(&self) -> bool {
+        H2StreamToChunkedTransfer::finished(self)
+    }
+    fn is_idle(&self) -> bool {
+        H2StreamToChunkedTransfer::is_idle(self)
+    }
+    fn reset_active(&mut self) {
+        H2StreamToChunkedTransfer::reset_active(self);
+    }
+}
+
+impl<W> H2ReqBodyProgress for H2StreamToRawTransfer<'_, W> {
+    fn received_size(&self) -> u64 {
+        H2StreamToRawTransfer::received_size(self)
+    }
+    fn copied_size(&self) -> u64 {
+        H2StreamToRawTransfer::copied_size(self)
+    }
+    fn recv_finished(&self) -> bool {
+        H2StreamToRawTransfer::recv_finished(self)
+    }
+    fn finished(&self) -> bool {
+        H2StreamToRawTransfer::finished(self)
+    }
+    fn is_idle(&self) -> bool {
+        H2StreamToRawTransfer::is_idle(self)
+    }
+    fn reset_active(&mut self) {
+        H2StreamToRawTransfer::reset_active(self);
     }
 }
