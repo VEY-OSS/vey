@@ -186,9 +186,10 @@ impl StackHttpEscaperConfig {
                 Ok(())
             }
             "peer_health_check" => {
-                self.peer_health_check = Some(PeerHealthCheckConfig::parse(v).context(format!(
+                let health_check = PeerHealthCheckConfig::parse(v).context(format!(
                     "invalid peer health check config value for key {k}"
-                ))?);
+                ))?;
+                self.peer_health_check = Some(health_check);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

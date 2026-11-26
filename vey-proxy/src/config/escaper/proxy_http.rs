@@ -32,7 +32,10 @@ use vey_types::net::{
 use vey_types::resolve::{QueryStrategy, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
 
-use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
+use super::{
+    AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig,
+    PeerHealthCheckConfig,
+};
 
 const ESCAPER_CONFIG_TYPE: &str = "ProxyHttp";
 
@@ -75,7 +78,7 @@ pub(crate) struct ProxyHttpEscaperConfig {
     pub(crate) pass_proxy_userid: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) peer_negotiation_timeout: Duration,
-    pub(crate) peer_health_check: Option<super::PeerHealthCheckConfig>,
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -265,9 +268,10 @@ impl ProxyHttpEscaperConfig {
                 Ok(())
             }
             "peer_health_check" => {
-                self.peer_health_check = Some(super::PeerHealthCheckConfig::parse(v).context(
-                    format!("invalid peer health check config value for key {k}"),
-                )?);
+                let health_check = PeerHealthCheckConfig::parse(v).context(format!(
+                    "invalid peer health check config value for key {k}"
+                ))?;
+                self.peer_health_check = Some(health_check);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -396,7 +400,7 @@ mod diff_action_tests {
 
     use vey_yaml::yaml_doc;
 
-    use super::ProxyHttpEscaperConfig;
+    use super::*;
     use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
 
     fn parse(doc: &Yaml) -> ProxyHttpEscaperConfig {
