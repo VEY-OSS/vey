@@ -24,6 +24,9 @@ pub use writer::H2StreamWriter;
 mod to_chunked_transfer;
 pub use to_chunked_transfer::{H2StreamToChunkedTransfer, H2StreamToChunkedTransferError};
 
+mod to_raw_transfer;
+pub use to_raw_transfer::H2StreamToRawTransfer;
+
 mod from_chunked_transfer;
 pub use from_chunked_transfer::{H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError};
 

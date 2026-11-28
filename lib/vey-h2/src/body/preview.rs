@@ -239,6 +239,20 @@ impl H2PreviewData {
         Ok(())
     }
 
+    /// Write the preview buffer as raw body bytes, without chunk framing.
+    ///
+    /// Used when the HTTP/1.1 request keeps `Content-Length`. Bytes past the
+    /// preview limit stay in [`Self::take_left`] for the following copy.
+    pub async fn write_raw<W>(&self, writer: &mut W) -> io::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        if self.buffer.is_empty() {
+            return Ok(());
+        }
+        writer.write_all(&self.buffer).await
+    }
+
     /// Write the preview buffer as a single HTTP/1.1 chunk, without a
     /// terminating zero-chunk. Used when more DATA still follows.
     pub async fn write_as_chunk<W>(&self, writer: &mut W) -> io::Result<()>
@@ -346,6 +360,17 @@ mod tests {
         let mut out = Vec::new();
         preview.write_as_chunk(&mut out).await.unwrap();
         assert_eq!(out, b"5\r\nhello\r\n");
+    }
+
+    #[tokio::test]
+    async fn write_raw_writes_buffer_without_framing() {
+        let mut preview = H2PreviewData::new(1024);
+        preview.buffer.extend_from_slice(b"hello");
+        preview.received = preview.buffer.len();
+
+        let mut out = Vec::new();
+        preview.write_raw(&mut out).await.unwrap();
+        assert_eq!(out, b"hello");
     }
 
     #[tokio::test]
