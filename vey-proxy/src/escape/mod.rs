@@ -73,6 +73,7 @@ mod route_select;
 mod route_upstream;
 mod stack_http;
 mod stack_https;
+mod stack_socks5;
 mod trick_float;
 
 mod ops;

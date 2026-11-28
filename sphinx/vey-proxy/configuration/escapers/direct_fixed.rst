@@ -46,8 +46,9 @@ TCP connects to a resolved domain use the peer health check supplied for that
 dial. A request target uses the
 :ref:`site <conf_site_peer_health_check>` or
 :ref:`user site <conf_auth_user_site_peer_health_check>` setting. A
-``stack_http`` or ``stack_https`` proxy address uses that escaper's
-``peer_health_check``. This escaper has no ``peer_health_check`` key of its own.
+``stack_http``, ``stack_https``, or ``stack_socks5`` proxy address uses that
+escaper's ``peer_health_check``. This escaper has no ``peer_health_check`` key
+of its own.
 
 .. _conf_escaper_direct_fixed_peer_health_max_domains:
 

@@ -10,7 +10,6 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use log::warn;
 use saphyr::Yaml;
 
 use vey_macros::DiffAction;
@@ -144,10 +143,6 @@ impl StackHttpEscaperConfig {
                 self.general.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
-            }
-            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
-                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
-                self.set("tcp_sock_speed_limit", v)
             }
             "http_forward_capability" => {
                 self.http_forward_capability = vey_yaml::value::as_http_forward_capability(v)
@@ -339,7 +334,7 @@ mod tests {
             proxy_addr_pick_policy: ketama
             proxy_user: user
             proxy_passwd: pass
-            conn_limit: 10MB
+            tcp_sock_speed_limit: 10MB
             http_forward_capability:
               forward_https: true
               forward_ftp: true
@@ -391,31 +386,6 @@ mod tests {
                 max_fails: 2,
                 fail_timeout: Duration::from_secs(5),
             })
-        );
-
-        let via_speed_limit = parse_ok(
-            r#"
-            name: stack-a
-            next: direct
-            proxy_addr: 127.0.0.1:8080
-            tcp_conn_speed_limit: 1MB
-            "#,
-        );
-        assert_eq!(
-            via_speed_limit.general.tcp_sock_speed_limit.max_north,
-            1_000_000
-        );
-        let via_conn_limit = parse_ok(
-            r#"
-            name: stack-a
-            next: direct
-            proxy_addr: 127.0.0.1:8080
-            tcp_conn_limit: 2MB
-            "#,
-        );
-        assert_eq!(
-            via_conn_limit.general.tcp_sock_speed_limit.max_north,
-            2_000_000
         );
 
         let pass_user = parse_ok(

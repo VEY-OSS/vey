@@ -39,6 +39,7 @@ pub(crate) mod route_select;
 pub(crate) mod route_upstream;
 pub(crate) mod stack_http;
 pub(crate) mod stack_https;
+pub(crate) mod stack_socks5;
 pub(crate) mod trick_float;
 
 pub(crate) use comply_context::EgressUpstream;
@@ -117,6 +118,7 @@ pub(crate) enum AnyEscaperConfig {
     RouteClient(route_client::RouteClientEscaperConfig),
     StackHttp(stack_http::StackHttpEscaperConfig),
     StackHttps(stack_https::StackHttpsEscaperConfig),
+    StackSocks5(stack_socks5::StackSocks5EscaperConfig),
     TrickFloat(trick_float::TrickFloatEscaperConfig),
 }
 
@@ -249,6 +251,10 @@ fn load_escaper(
             let config = stack_https::StackHttpsEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::StackHttps(config))
         }
+        "stack_socks5" | "stacksocks5" => {
+            let config = stack_socks5::StackSocks5EscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::StackSocks5(config))
+        }
         "trick_float" | "trickfloat" => {
             let config = trick_float::TrickFloatEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::TrickFloat(config))
@@ -303,6 +309,7 @@ mod stack_escaper_tests {
         match config {
             AnyEscaperConfig::StackHttp(config) => config.r#type(),
             AnyEscaperConfig::StackHttps(config) => config.r#type(),
+            AnyEscaperConfig::StackSocks5(config) => config.r#type(),
             _ => panic!("unexpected escaper config"),
         }
     }
@@ -375,6 +382,36 @@ mod stack_escaper_tests {
         );
         assert!(matches!(
             https.diff_action(&https_alias),
+            EscaperConfigDiffAction::NoAction
+        ));
+
+        let socks5 = load(
+            r#"
+            type: stack_socks5
+            name: stack-socks
+            next: direct
+            proxy_addr: 127.0.0.1:1080
+            "#,
+        );
+        assert_eq!(type_name(&socks5), "StackSocks5");
+        assert!(socks5.resolver().is_empty());
+        let next = socks5.dependent_escaper().unwrap();
+        assert_eq!(next.iter().next().unwrap().as_str(), "direct");
+        assert!(matches!(
+            http.diff_action(&socks5),
+            EscaperConfigDiffAction::SpawnNew
+        ));
+
+        let socks5_alias = load(
+            r#"
+            type: stacksocks5
+            name: stack-socks
+            next: direct
+            proxy_addr: 127.0.0.1:1080
+            "#,
+        );
+        assert!(matches!(
+            socks5.diff_action(&socks5_alias),
             EscaperConfigDiffAction::NoAction
         ));
     }

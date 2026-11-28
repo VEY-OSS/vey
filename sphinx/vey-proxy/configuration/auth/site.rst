@@ -111,7 +111,8 @@ the same ``max_fails`` and ``fail_timeout`` fields as
 This key is used only when the task has no site context and the escaper is
 ``direct_fixed`` or ``direct_float``. A task that already resolved a tenant
 site follows that site's setting, whether or not the check is enabled there.
-``proxy``, ``divert_tcp``, ``stack_http``, and ``stack_https`` use their own
+``proxy``, ``divert_tcp``, ``stack_http``, ``stack_https``, and ``stack_socks5``
+use their own
 :ref:`peer health check <conf_escaper_common_peer_health_check>` and ignore
 this key.
 

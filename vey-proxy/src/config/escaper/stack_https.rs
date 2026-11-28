@@ -10,7 +10,6 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use log::warn;
 use saphyr::Yaml;
 
 use vey_macros::DiffAction;
@@ -149,10 +148,6 @@ impl StackHttpsEscaperConfig {
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
-            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
-                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
-                self.set("tcp_sock_speed_limit", v)
-            }
             "http_forward_capability" => {
                 self.http_forward_capability = vey_yaml::value::as_http_forward_capability(v)
                     .context(format!("invalid http forward capability value for key {k}"))?;
@@ -212,10 +207,9 @@ impl StackHttpsEscaperConfig {
                 Ok(())
             }
             "peer_health_check" => {
-                let health_check = PeerHealthCheckConfig::parse(v).context(format!(
+                self.peer_health_check = Some(PeerHealthCheckConfig::parse(v).context(format!(
                     "invalid peer health check config value for key {k}"
-                ))?;
-                self.peer_health_check = Some(health_check);
+                ))?);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -433,16 +427,6 @@ mod tests {
                 fail_timeout: Duration::from_secs(15),
             })
         );
-
-        let deprecated = parse_ok(
-            r#"
-            name: stack-a
-            next: direct
-            proxy_addr: 127.0.0.1:8080
-            tcp_conn_limit: 2MB
-            "#,
-        );
-        assert_eq!(deprecated.general.tcp_sock_speed_limit.max_north, 2_000_000);
     }
 
     #[test]

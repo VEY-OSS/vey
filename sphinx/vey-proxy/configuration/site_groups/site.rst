@@ -139,8 +139,8 @@ Passive health check for this origin, in the same shape as nginx
 If this key is not set, health checking is off for this site's weighted
 upstream list and for direct escapers that resolve this site. A matched
 :ref:`user site <configuration_auth_user_site>` is not consulted while a site
-context is present. ``proxy``, ``divert_tcp``, ``stack_http``, and
-``stack_https`` do not use this key.
+context is present. ``proxy``, ``divert_tcp``, ``stack_http``,
+``stack_https``, and ``stack_socks5`` do not use this key.
 
 Two places use the same limits:
 

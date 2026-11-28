@@ -39,6 +39,7 @@ use super::route_select::RouteSelectEscaper;
 use super::route_upstream::RouteUpstreamEscaper;
 use super::stack_http::StackHttpEscaper;
 use super::stack_https::StackHttpsEscaper;
+use super::stack_socks5::StackSocks5Escaper;
 use super::trick_float::TrickFloatEscaper;
 
 static ESCAPER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -266,6 +267,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
         AnyEscaperConfig::RouteClient(c) => RouteClientEscaper::prepare_initial(c)?,
         AnyEscaperConfig::StackHttp(c) => StackHttpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::StackHttps(c) => StackHttpsEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::StackSocks5(c) => StackSocks5Escaper::prepare_initial(c)?,
         AnyEscaperConfig::TrickFloat(c) => TrickFloatEscaper::prepare_initial(c)?,
     };
     registry::add(name.clone(), escaper);
